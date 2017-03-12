@@ -148,7 +148,7 @@ function (angular, _, $) {
                 $('<span>, </span>').appendTo($paramsContainer);
               }
 
-              var paramValue = templateSrv.highlightVariablesAsHtml(part.params[index]);
+              var paramValue = templateSrv.highlightVariablesAsHtml(part.params[index] || param.name);
               var $paramLink = $('<a class="graphite-func-param-link pointer">' + paramValue + '</a>');
               var $input = $(paramTemplate);
 

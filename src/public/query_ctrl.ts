@@ -273,7 +273,7 @@ export class SqlQueryCtrl extends QueryCtrl {
         ]));
       } else {
         return this.$q.when(this.uiSegmentSrv.newOperators([
-          '=', '<>', '<', '>'
+          '=', '<>', '<', '<=', '>', '>=', 'IN', 'NOT IN'
         ]));
       }
     }

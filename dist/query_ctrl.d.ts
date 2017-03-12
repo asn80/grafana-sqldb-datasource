@@ -8,12 +8,13 @@ export declare class SqlQueryCtrl extends QueryCtrl {
     static templateUrl: string;
     queryModel: SqlQuery;
     queryBuilder: any;
-    groupBySegment: any;
     resultFormats: any[];
     schemaSegment: any;
     timeColDataTypeSegment: any;
+    dateColDataTypeSegment: any;
     tagSegments: any[];
     selectMenu: any;
+    groupByMenu: any;
     tableSegment: any;
     removeTagFilterSegment: any;
     matchOperators: any;
@@ -22,9 +23,9 @@ export declare class SqlQueryCtrl extends QueryCtrl {
     target: any;
     /** @ngInject **/
     constructor($scope: any, $injector: any, templateSrv: any, $q: any, uiSegmentSrv: any);
-    buildSelectMenu(): void;
+    buildSelectMenu(): any;
     getGroupByOptions(part: any): any;
-    groupByAction(): void;
+    addGroupByPart(cat: any, subitem: any): void;
     removeGroupByPart(part: any, index: any): void;
     addSelectPart(selectParts: any, cat: any, subitem: any): void;
     removeSelectPart(selectParts: any, part: any): void;
@@ -35,6 +36,7 @@ export declare class SqlQueryCtrl extends QueryCtrl {
     schemaChanged(): void;
     getTimeColDataTypeSegments(): any;
     timeColDataTypeChanged(): void;
+    dateColDataTypeChanged(): void;
     toggleEditorMode(): void;
     getTableSegments(): any;
     getPartOptions(part: any): any;

@@ -25,9 +25,10 @@ export default class SqlDatasource {
     _sqlRequest(method: any, url: any, data: any): any;
     _replaceQueryVars(query: any, options: any, target: any): any;
     _getTimeFilter(isToNow: any): string;
+    _getDateFilter(isToNow: any): string;
     _getSubTimestamp(date: any, toDataType: any, roundUp: any): any;
     _getRoundUnixTime(target: any): string;
-    _num2Ts(str: any): any;
+    _num2Ts(str: any, toDataType: any): any;
     _ts2Num(str: any, toDataType: any): any;
     _getIntervalNum(str: any): any;
     _abstractDataType(datatype: any): any;

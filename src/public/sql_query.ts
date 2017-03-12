@@ -123,9 +123,6 @@ export default class SqlQuery {
     var str = "";
     var operator = tag.operator;
     var value = tag.value;
-    if (index > 0) {
-      str = (tag.condition || 'AND') + ' ';
-    }
 
     if (!operator) {
       if (/^\/.*\/$/.test(value)) {
@@ -135,22 +132,52 @@ export default class SqlQuery {
       }
     }
 
-    // quote value unless regex or number
+    // quote value unless regex or number(s)
     var matchOperators = queryPart.getMatchOperators(this.dbms);
-    if (!matchOperators || (operator !== matchOperators.match && operator !== matchOperators.not)) {
+    if (operator.indexOf('IN') > -1) {
+      // IN/NOT IN operators may have a tupe on the right side
+      value = value.replace(/[()]/g, '');
       if (interpolate) {
         value = this.templateSrv.replace(value, this.scopedVars);
+        // Support wildcard values to behave like regular filters
+        if (value === '*') {
+          return str;
+        }
       }
-      if (operator !== '>' && operator !== '<' && isNaN(+value)) {
+      // Check if the array is all numbers
+      var values = value.split(',');
+      var intArray = _.reduce(values, (memo, x) => {
+        return memo && !isNaN(+x);
+      }, true);
+      // Force quotes and braces
+      for (var i in values) {
+        values[i] = values[i].replace(/\'\"/,'');
+        if (!intArray) {
+          values[i] = "'" + values[i].replace('\\', '\\\\') + "'";
+        }
+      }
+      value = '(' + values.join(', ') + ')';
+    } else if (!matchOperators || (operator !== matchOperators.match && operator !== matchOperators.not)) {
+      if (interpolate) {
+        value = this.templateSrv.replace(value, this.scopedVars);
+        if (value === '*') {
+          return str;
+        }
+      }
+
+      if (!operator.startsWith('>') && !operator.startsWith('<') && isNaN(+value)) {
         value = "'" + value.replace('\\', '\\\\') + "'";
       }
-    } else if (interpolate){
+    } else if (interpolate) {
       value = this.templateSrv.replace(value, this.scopedVars, 'regex');
       value = "'" + value.replace(/^\//, '').replace(/\/$/, '') + "'";
     } else if (isNaN(+value)) {
       value = "'" + value.replace(/^\//, '').replace(/\/$/, '') + "'";
     }
 
+    if (index > 0) {
+      str = (tag.condition || 'AND') + ' ';
+    }
     return str + tag.key + ' ' + operator + ' ' + value;
   }
 
@@ -200,28 +227,43 @@ export default class SqlQuery {
     var selectClause = [];
     var groupByClause = [];
     var orderByClause = '';
+    var usePositions = (this.dbms !== 'clickhouse');
 
     if (target.groupBy.length !== 0) {
       _.each(this.target.groupBy, function(groupBy, i) {
 
+        var alias = null;
         switch (groupBy.type) {
           case 'time':
             selectClause.push('$unixtimeColumn * 1000 AS time_msec');
+            if (!usePositions) {
+              alias = 'time_msec';
+            }
             break;
 
           case 'alias':
             var part = selectClause.pop();
             selectClause.push(queryPart.create(groupBy).render(part));
             groupByClause.pop();
+            alias = groupBy.params[0];
             break;
 
           default:
             var part = queryPart.create(groupBy).render();
             selectClause.push(part);
+            if (!usePositions) {
+              alias = part;
+            }
             break;
         }
+
+        if (alias !== null) {
+          groupByClause.push(alias);
+        } else {
           groupByClause.push((i + 1).toFixed(0));
+        }
       });
+    }
 
     var query = 'SELECT ';
     if (selectClause.length > 0) {

@@ -35,61 +35,70 @@ function (_) {
     var query;
     var table;
 
-    var colType = (this.dbms === 'postgres') ?
-      'column_name || \' : \' || data_type' :
-      'concat(column_name, \' : \', data_type)';
-
-    if (type === 'TAG_KEYS') {
-      query = 'SELECT column_name ' +
-              'FROM information_schema.columns ' +
-              'WHERE table_schema = \'' + this.target.schema + '\' AND ' +
-                    'table_name = \'' + this.target.table + '\' ' +
-              'ORDER BY ordinal_position';
-      return query;
-
-    } else if (type === 'TAG_VALUES') {
-      query = 'SELECT distinct(' + withKey + ') ' +
-              'FROM "' + this.target.schema + '"."' + this.target.table + '" ' +
-              'ORDER BY ' + withKey;
-      return query;
-
-    } else if (type === 'TABLES') {
-      query = 'SELECT table_name ' +
-              'FROM information_schema.tables ' +
-              'WHERE table_schema = \'' + this.target.schema + '\' ' +
-              'ORDER BY table_name';
-      return query;
-
-    } else if (type === 'FIELDS') {
-      query = 'SELECT ' + colType + ' ' +
-              'FROM information_schema.columns ' +
-              'WHERE table_schema = \'' + this.target.schema + '\' AND ' +
-                    'table_name = \'' + this.target.table + '\' ' +
-              'ORDER BY ordinal_position';
-      return query;
-
-    } else if (type === 'SCHEMA') {
-      query = 'SELECT schema_name ' +
-              'FROM information_schema.schemata ' +
-              'ORDER BY schema_name';
-      return query;
-
-    } else if (type === 'SET_DEFAULT') {
-      var exceptSchemaArr = "'information_schema', 'pg_catalog'";
-      var numericTypes = "'numeric', 'decimal', 'bigint', 'integer', " +
-                         "'double', 'double precision', 'float'";
-
-      query = 'SELECT table_schema, table_name, ' +
-                      colType + ' ' +
-              'FROM information_schema.columns ' +
-              'WHERE table_schema NOT IN (' + exceptSchemaArr + ') ' +
-              'ORDER BY (data_type LIKE \'timestamp%\') desc, ' +
+    var templates = {
+      base: {
+        defaults: {
+          colType: 'concat(column_name, \' : \', data_type)',
+          numericTypes: "'numeric', 'decimal', 'bigint', 'integer', " +
+                        "'double', 'double precision', 'float'",
+          exceptSchemaArr: "'information_schema', 'pg_catalog'"
+        },
+        SCHEMA: 'SELECT schema_name FROM information_schema.schemata ORDER BY schema_name',
+        TABLES: 'SELECT column_name FROM information_schema.tables ' +
+                'WHERE table_schema = \'${schema}\'' +
+                'ORDER BY table_name',
+        FIELDS: 'SELECT ${colType} FROM information_schema.columns ' +
+                'WHERE table_schema = \'${schema}\' AND table_name = \'${table}\' ' +
+                'ORDER BY ordinal_position',
+        TAG_KEYS: 'SELECT column_name FROM information_schema.columns ' +
+                  'WHERE table_schema = \'${schema}\' AND table_name = \'${table}\' ' +
+                  'ORDER BY ordinal_position',
+        TAG_VALUES: 'SELECT distinct(${key}) FROM "${schema}"."${table}" ORDER BY ${key}',
+        SET_DEFAULT: 'SELECT table_schema, table_name, ${colType} FROM information_schema.columns ' +
+                     'WHERE table_schema NOT IN (${exceptSchemaArr}) ' +
+                     'ORDER BY (data_type LIKE \'timestamp%\') desc, ' +
                        '(data_type = \'datetime\') desc, ' +
                        'table_schema, table_name, ' +
-                       '(data_type IN (' + numericTypes + ')) desc, ' +
-                       'ordinal_position ' +
-              'LIMIT 1';
-      return query;
+                       '(data_type IN (${numericTypes})) desc, ordinal_position LIMIT 1'
+      },
+
+      postgres: {
+        defaults: {colType: 'column_name || \' : \' || data_type'}
+      },
+
+      clickhouse: {
+        defaults: {schema: 'default', colType: 'name || \' : \' || type'},
+        SCHEMA: 'SELECT name FROM system.databases ORDER BY name',
+        TABLES: 'SELECT name FROM system.tables WHERE database = \'${schema}\' ORDER BY name',
+        FIELDS: 'SELECT ${colType} as col FROM system.columns ' +
+                'WHERE database = \'${schema}\' AND table = \'${table}\' ORDER BY col',
+        TAG_KEYS: 'SELECT name FROM system.columns ' +
+                  'WHERE database = \'${schema}\' AND table = \'${table}\' ORDER BY name',
+        TAG_VALUES: 'SELECT 1',
+        SET_DEFAULT: 'SELECT 1'
+      }
+    }
+
+    /* Specialisations of base template */
+    templates.postgres = _.merge({}, templates.base, templates.postgres);
+
+    var template = templates[this.dbms];
+    if (!template) {
+      template = templates.base;
+    }
+
+    var vars = _.defaults(this.target, template.defaults);
+    vars.key = withKey;
+    switch (type) {
+    case 'TAG_KEYS':
+    case 'TAG_VALUES':
+    case 'TABLES':
+    case 'FIELDS':
+    case 'SCHEMA':
+    case 'SET_DEFAULT':
+      return _.template(template[type])(vars);
+    default:
+      break;
     }
 
     if (table) {

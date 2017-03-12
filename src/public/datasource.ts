@@ -43,13 +43,30 @@ export default class SqlDatasource {
     var i, y;
 
     var allQueries = _.map(options.targets, (target) => {
+      /* ClickHouse has implicit date on most of the table engines,
+       * infer the Date data type if it isn't defined (raw queries). */
+      var timeColType = target.timeColDataType;
+      if (this.dbms === 'clickhouse') {
+        var dateCol = target.dateColDataType || 'date : Date';
+        var arr = dateCol.split(':');
+        if (arr.length > 0) {
+          target.dateCol = arr[0].trim();
+          target.dateDataType = arr[1].trim().toLowerCase();
+        }
+        if (timeColType === undefined) {
+          timeColType = '* : DateTime';
+        }
+      }
+
       if (target.hide) { return []; }
-      if (target.timeColDataType === undefined) { return []; }
+      if (timeColType === undefined) {
+        return [];
+      }
 
       queryTargets.push(target);
-      var arr = target.timeColDataType.split(':');
+      var arr = timeColType.split(':');
       target.timeCol = arr[0].trim();
-      target.timeDataType = arr[1].trim();
+      target.timeDataType = arr[1].trim().toLowerCase();
 
       var queryModel = new SqlQuery(target, this.templateSrv, options.scopedVars);
       queryModel.dbms = this.dbms;
@@ -108,7 +125,6 @@ export default class SqlDatasource {
         });
       });
 
-      console.log(seriesList);
       return { data: seriesList };
     });
   };
@@ -161,6 +177,31 @@ export default class SqlDatasource {
   };
 
   _seriesQuery(query) {
+    if (this.dbms == 'clickhouse') {
+      return this._sqlRequest('GET', '/', {query: query + ' FORMAT JSON'}).then(data => {
+        /* Reparse CH response from columnar to row based format. */
+        var series = _.map(data.data, row => {
+          var r = [];
+          for (var i in row) {
+            r.push(row[i]);
+          }
+          return r;
+        });
+        var columns = _.map(data.meta, row => {
+          return row.name;
+        });
+        data.results = [{series: [{values: series, columns: columns}]}];
+        return data;
+      },
+      error => {
+        var message = '';
+        var match = /DB::Exception: (.+), e\.what/.exec(error.data.response);
+        if (match) {
+          message = match[1];
+        }
+        throw _.merge({}, error, {message: message, data: {error: error.data.response}});
+      });
+    }
     return this._sqlRequest('POST', '/query', {query: query, epoch: 'ms'});
   }
 
@@ -181,11 +222,17 @@ export default class SqlDatasource {
         return { status: "success", message: "Data source is working", title: "Success" };
       },
       (error) => {
-        var errorMessage = error.data.message;
-        if (errorMessage.indexOf('connection refused') !== -1) {
-          errorMessage = 'Connection error: Could not connect the database';
-        } else if (errorMessage.indexOf('Access denied') !== -1) {
-          errorMessage = 'Authentication error: Invalid user name or password';
+        var errorMessage = error;
+        if (errorMessage.data) {
+          errorMessage = errorMessage.data.message;
+        }
+
+        if (_.isArray(errorMessage)) {
+          if (errorMessage.indexOf('connection refused') !== -1) {
+            errorMessage = 'Connection error: Could not connect the database';
+          } else if (errorMessage.indexOf('Access denied') !== -1) {
+            errorMessage = 'Authentication error: Invalid user name or password';
+          }
         }
 
         return { status: "error", message: errorMessage, title: "Error" };
@@ -284,7 +331,7 @@ export default class SqlDatasource {
       if (date === 'now') {
         switch (this._abstractDataType(toDataType)) {
         case 'timestamp':
-          return this._num2Ts('now()');
+          return this._num2Ts('now()', toDataType);
 
         case 'numeric':
           return this._ts2Num('now()', 'timestamp with time zone');
@@ -313,6 +360,21 @@ export default class SqlDatasource {
           rtn = 'DATE_SUB(CURRENT_TIMESTAMP(), INTERVAL ' + amount + ' ' + units[unit] + ')';
           break;
 
+        case 'clickhouse':
+          var units = {
+            'w': '7 * 24 * 3600',
+            'd': '24 * 3600',
+            'h': '3600',
+            'm': '60',
+            's': '1',
+          };
+          rtn = '(now()-' + amount + '*' + units[unit] + ')';
+          /* The types for Date and DateTime are different, must cast. */
+          if (toDataType == 'date') {
+            rtn = 'toDate' + rtn;
+          }
+          break;
+
         default:
           break;
         }
@@ -331,7 +393,7 @@ export default class SqlDatasource {
     switch (this._abstractDataType(toDataType)) {
     case 'timestamp':
       if (isNumericDate) {
-        rtn = this._num2Ts(rtn);
+        rtn = this._num2Ts(rtn, toDataType);
       }
       break;
 
@@ -363,16 +425,26 @@ export default class SqlDatasource {
       case "mysql":
         rtn = '(' + col + ' DIV ' + interval + ') * ' + interval;
         break;
+
+      case 'clickhouse':
+        if (interval > 1) {
+          rtn = 'intDiv(toUInt32(' + col + '), ' + interval + ') * ' + interval;
+        } else {
+          rtn = col;
+        }
+        break;
       }
     }
 
     return rtn;
   }
 
-  _num2Ts(str) {
+  _num2Ts(str, toDataType) {
     if (str === 'now()') {
+      if (this.dbms == 'clickhouse' && toDataType == 'date') {
+        return 'today()';
+      }
       return str;
-
     } else {
       switch (this.dbms) {
       case 'postgres':
@@ -380,6 +452,12 @@ export default class SqlDatasource {
 
       case 'mysql':
         return 'FROM_UNIXTIME(' + str + ')';
+
+      case 'clickhouse':
+        if (toDataType == 'date') {
+           return 'toDate(toDateTime(' + str + '))';
+        }
+        return 'toDateTime(' + str + ')';
 
       default:
         return str;
@@ -394,6 +472,9 @@ export default class SqlDatasource {
 
     case 'mysql':
       return 'UNIX_TIMESTAMP(' + str + ')';
+
+    case 'clickhouse':
+      return 'toUnixTimestamp(' + str + ')';
 
     default:
       return str;
@@ -415,7 +496,11 @@ export default class SqlDatasource {
       // cast to seconds
       switch (unit) {
         case 'ms':
-          rtn = second / 1000;
+          if (this.dbms !== 'clickhouse') {
+            rtn = second / 1000;
+          } else {
+            rtn = second;
+          }
           break;
 
         case 'm':
@@ -460,6 +545,16 @@ export default class SqlDatasource {
     case 'float':
     case 'double':
     case 'double precision':
+    case 'uint64':
+    case 'uint32':
+    case 'uint16':
+    case 'uint8':
+    case 'int64':
+    case 'int32':
+    case 'int16':
+    case 'int8':
+    case 'float64':
+    case 'float32':
       return 'numeric';
 
     default:

@@ -9,8 +9,15 @@ function (_, TableModel) {
     this.series = options.series;
     this.table = options.table;
     this.alias = options.alias;
-    this.groupBy = options.groupBy;
     this.annotation = options.annotation;
+    /* Flatten aliases */
+    this.groupBy = _.reduce(options.groupBy, function(memo, v) {
+      if (v.type == 'alias') {
+        memo.pop();
+      }
+      memo.push(v);
+      return memo;
+    }, []);
   }
 
   var p = SqlSeries.prototype;
@@ -24,33 +31,50 @@ function (_, TableModel) {
       return output;
     }
 
-    var seriesName = self.table;
-
     var seriesDatapoints = {};
     _.each(self.series.values, function(row) {
-      var tags = [];
-      var tagsStr = '';
+      var tags = {};
+      var tagList = [];
+      var addTags = true;
+
       _.each(self.groupBy, function(groupBy, k) {
         if (k !== 0) {
-          tags.push(groupBy.params[0] + ': ' + row[k]);
+          tagList.push(groupBy.params[0] + ': ' + row[k]);
+        }
+        tags[groupBy.params[0]] = row[k];
+        /* Note down if format string contains tags. */
+        if (self.alias && self.alias.indexOf('$' + groupBy.params[0]) > -1) {
+          addTags = false;
         }
       });
-      if (tags.length !== 0) {
-        tagsStr = ' {' + tags.join(', ') + '}';
+
+      var tagsStr = '';
+      if (tagList.length !== 0) {
+        tagsStr = ' {' + tagList.join(', ') + '}';
       }
 
       _.each(row, function(value, i) {
         if (i < self.groupBy.length) {
             return;
         }
+
+        var seriesName = self.table;
         var columnName = self.series.columns[i];
         if (columnName !== 'value') {
-          seriesName = seriesName + '.' + columnName;
+          if (seriesName) {
+            seriesName = seriesName + '.' + columnName;
+          } else {
+            seriesName = columnName;
+          }
         }
+
+        /* Do not print tags if it is a part of formatting string */
         if (self.alias) {
-          seriesName = self._getSeriesName(self.series, i);
+          seriesName = self._getSeriesName(self.series, i, tags);
         }
-        seriesName = seriesName + tagsStr;
+        if (addTags) {
+          seriesName = seriesName + tagsStr;
+        }
 
         if (! seriesDatapoints[seriesName]) {
           seriesDatapoints[seriesName] = [];
@@ -70,7 +94,7 @@ function (_, TableModel) {
     return output;
   };
 
-  p._getSeriesName = function(series, index) {
+  p._getSeriesName = function(series, index, tags) {
     var self = this;
     var regex = /\$(\w+)|\[\[([\s\S]+?)\]\]/g;
 
@@ -79,7 +103,7 @@ function (_, TableModel) {
 
       if (group === 't' || group === 'table') { return self.table || series.name; }
       if (group === 'col') { return series.columns[index]; }
-
+      if (group in tags) { return tags[group]; }
       return match;
     });
   };

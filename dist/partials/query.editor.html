@@ -1,7 +1,7 @@
 <query-editor-row query-ctrl="ctrl" can-collapse="true" has-text-edit-mode="true">
 
 	<div class="gf-form" ng-if="ctrl.target.rawQuery">
-		<input type="text" class="gf-form-input" ng-model="ctrl.target.query" spellcheck="false" ng-blur="ctrl.refresh()"></input>
+		<textarea rows="7" style="font-family: monospace;" class="gf-form-input" ng-model="ctrl.target.query" spellcheck="false" ng-blur="ctrl.refresh()"></textarea>
 	</div>
 
 	<div ng-if="!ctrl.target.rawQuery">
@@ -28,10 +28,14 @@
 		</div>
 
 		<div class="gf-form-inline">
+			<div class="gf-form"  ng-if="ctrl.queryModel.dbms === 'clickhouse'">
+				<label class="gf-form-label query-keyword width-7">DATE</label>
+
+				<metric-segment segment="ctrl.dateColDataTypeSegment" get-options="ctrl.getTimeColDataTypeSegments()" on-change="ctrl.dateColDataTypeChanged()"></metric-segment>
+			</div>
+
 			<div class="gf-form">
-				<label class="gf-form-label query-keyword width-7">
-					<span>TIME : TYPE</span>
-				</label>
+				<label class="gf-form-label query-keyword width-7">TIME : TYPE</label>
 			</div>
 
 			<div class="gf-form">
@@ -89,11 +93,10 @@
 			</div>
 
             <div class="gf-form">
-				<metric-segment
-					segment="ctrl.groupBySegment"
-					get-options="ctrl.getGroupByOptions()"
-					on-change="ctrl.groupByAction(part, $index)">
-				</metric-segment>
+            	<label class="dropdown"
+            		dropdown-typeahead="ctrl.groupByMenu"
+            		dropdown-typeahead-on-select="ctrl.addGroupByPart($item, $subItem)">
+            	</label>
             </div>
 
 			<div class="gf-form gf-form--grow">

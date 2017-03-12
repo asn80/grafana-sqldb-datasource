@@ -1,12 +1,12 @@
 # grafana-sqldb-datasource
 
-SQL DB database is the datasource of Grafana 3.0, which provides the support of both of MySQL and PostgreSQL as a backend database.
+SQL DB database is the datasource of Grafana 3.0, which provides the support of MySQL, PostgreSQL and ClickHouse as a backend database.
 
 ## Features
 
 ### 1. Query Editor
 
-Forked from influxDB plugin, this datasource frontend has been implemented. Therefore, you can issue SQL queries in the same manner as in influxDB.
+Forked from InfluxDB plugin, this datasource frontend has been implemented. Therefore, you can issue SQL queries in the same manner as in influxDB.
 
 (Defining with query editor)<br>
 ![Query Editor](https://github.com/sraoss/grafana-sqldb-datasource/wiki/images/query-editor.png)
@@ -20,15 +20,16 @@ You can switch to raw query mode by clicking icon.
 (Toggling edit mode)<br>
 ![Query Editor](https://github.com/sraoss/grafana-sqldb-datasource/wiki/images/rawquery.png)
 
-Raw queries are generated refering to inputs of query editor. You can modify them (add JOIN another tables, sub queries in WHERE clause, and so on).
+Raw queries are generated referring to inputs of query editor. You can modify them (add JOIN another tables, sub queries in WHERE clause, and so on).
 
 #### Macros
 
-If you tries to mpdify a raw query or define it by yourself without choosing parts in query editor, you can use these macros.
+If you tries to modify a raw query or define it by yourself without choosing parts in query editor, you can use these macros.
 
 | macro | detail |
 |:------|:-------|
 | $timeColumn | This is replaced to "TIME" from [TIME : TYPE] in query editor. |
+| $dateColumn | This is replaced to "DATE" from [DATE] in query editor (optional). |
 | $timeFilter | This is replaced to "<code>$timeColumn < $from AND $timeColumn > $to</code>". |
 | $from | This is replaced to "from" word of the time range for panels, and this is casted as "TYPE" from [TIME : TYPE] in query editor. |
 | $to   | This is replaced to "to" of the time range for panels, and this is casted as "TYPE" from [TIME : TYPE] in query editor.|
@@ -36,6 +37,8 @@ If you tries to mpdify a raw query or define it by yourself without choosing par
 | $unixTo   | This is replaced to "to" of the time range for panels, and this is casted as number of unix timestamp. |
 | $timeFrom | This is replaced to "from" of the time range for panels, and this is casted as timestamp. |
 | $timeTo   | This is replaced to "to" of the time range for panels, and this is casted as timestamp. |
+| $dateFrom | This is replaced to "from" of the time range for panels, and this is casted as date. |
+| $dateTo   | This is replaced to "to" of the time range for panels, and this is casted as date. |
 
 ### 3. Templating
 
@@ -53,26 +56,27 @@ You can create a template variable in Grafana and have that variable filled with
 Annotaions is also supported. You can issue SQL queries and add event information above graphes.　
 
 (Defining an annotation)<br>
-![Annotaions Editor](https://github.com/sraoss/grafana-sqldb-datasource/wiki/images/annotation.png)
+![Annotations Editor](https://github.com/sraoss/grafana-sqldb-datasource/wiki/images/annotation.png)
 
 (Annotations in a graph)<br>
-![Annotaions Graph](https://github.com/sraoss/grafana-sqldb-datasource/wiki/images/annotation_graph.png)
+![Annotations Graph](https://github.com/sraoss/grafana-sqldb-datasource/wiki/images/annotation_graph.png)
 
 ### 5. Using timestamp and unixtimestamp as a time-serise column
 
-You can choose a time-serise column from the table definition.
+You can choose a time-series column from the table definition.
 
 (Choosing the column for time series)<br>
 ![time series](https://github.com/sraoss/grafana-sqldb-datasource/wiki/images/time-series.png)
 
 #### Data types
 
-The supported data types for time-serise are:
+The supported data types for time-series are:
 
-| category | PostgreSQL | MySQL |
-|:---------|:-----------|:-------|
+| category | PostgreSQL | MySQL  | ClickHouse |
+|:---------|:-----------|:-------|:-----------|
 | timestamp type | timestamp without time zone <br> timestamp with time zone | timestamp <br> datetime |
-| number type <br> (if you use unixtimesamp as a time-serise column) | bigint <br> integer (int) <br> float <br> real <br> double precision <br> decimal <br> numeric | bigint <br> integer (int) <br> float <br> real <br> double precision <br> decimal <br> numeric |
+| number type <br> (if you use unixtimesamp as a time-serise column) | bigint <br> integer (int) <br> float <br> real <br> double precision <br> decimal <br> numeric | bigint <br> integer (int) <br> float <br> real <br> double precision <br> decimal <br> numeric | DateTime, any numeric type |
+| date type | | | Date, any numeric type |
 
 ## Example
 ### Query with variables
@@ -145,6 +149,12 @@ ORDER BY (coltime DIV 1200) * 1200
 | 5.7 | 5.6 | 5.5 |
 |:----|:----|:----|
 | (not yet) | (not yet) | OK |
+
+* ClickHouse
+
+| 1.1.54164 |
+|:----------|
+| OK |
 
 ## References
 

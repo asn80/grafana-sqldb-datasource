@@ -14,12 +14,13 @@ export class SqlQueryCtrl extends QueryCtrl {
 
   queryModel: SqlQuery;
   queryBuilder: any;
-  groupBySegment: any;
   resultFormats: any[];
   schemaSegment: any;
   timeColDataTypeSegment: any;
+  dateColDataTypeSegment: any;
   tagSegments: any[];
   selectMenu: any;
+  groupByMenu: any;
   tableSegment: any;
   removeTagFilterSegment: any;
   matchOperators: any;
@@ -59,6 +60,10 @@ export class SqlQueryCtrl extends QueryCtrl {
       this.target.timeColDataType || {fake: true, value: '-- time : type --'}
     );
 
+    this.dateColDataTypeSegment = uiSegmentSrv.newSegment(
+      this.target.dateColDataType || {value: 'date : Date'}
+    );
+
     this.tagSegments = [];
     for (let tag of this.target.tags) {
       if (!tag.operator) {
@@ -78,10 +83,11 @@ export class SqlQueryCtrl extends QueryCtrl {
       this.tagSegments.push(uiSegmentSrv.newKeyValue(tag.value));
     }
 
-    this.groupBySegment = this.uiSegmentSrv.newPlusButton();
-    //this.fixGroupBySegments();
     this.fixTagSegments();
-    this.buildSelectMenu();
+    this.selectMenu = this.buildSelectMenu();
+    this.groupByMenu = _.filter(this.selectMenu, e => {
+      return e.text != 'Aggregations' && e.text != 'Selectors';
+    });
     this.removeTagFilterSegment = uiSegmentSrv.newSegment({
       fake: true, value: '-- remove tag filter --'
     });
@@ -105,15 +111,18 @@ export class SqlQueryCtrl extends QueryCtrl {
   */
 
   buildSelectMenu() {
+    var dbms = this.queryModel.dbms;
     var categories = queryPart.getCategories();
-    this.selectMenu = _.reduce(categories, function(memo, cat, key) {
+    return _.reduce(categories, function(memo, cat, key) {
       var menu = {
         text: key,
-        submenu: cat.map(item => {
-         return {text: item.type, value: item.type};
-        }),
+        submenu: cat
+          .filter(item => { return !item.dbms || item.dbms == dbms; })
+          .map(item => { return {text: item.type, value: item.type}; })
       };
-      memo.push(menu);
+      if (menu.submenu.length > 0) {
+        memo.push(menu);
+      }
       return memo;
     }, []);
   }
@@ -134,23 +143,8 @@ export class SqlQueryCtrl extends QueryCtrl {
 
   }
 
-  /*
-  fixGroupBySegments() {
-    var count = this.groupBySegment.length;
-    var lastSegment = this.groupBySegment[Math.max(count-1, 0)];
-    console.log(this.groupBySegment);
-
-    if (!lastSegment || lastSegment.type !== 'plus-button') {
-      this.groupBySegment.push(this.uiSegmentSrv.newPlusButton());
-    }
-  }
-  */
-
-  groupByAction() {
-    this.queryModel.addGroupBy(this.groupBySegment.value);
-    var plusButton = this.uiSegmentSrv.newPlusButton();
-    this.groupBySegment.value  = plusButton.value;
-    this.groupBySegment.html  = plusButton.html;
+  addGroupByPart(cat, subitem) {
+    this.queryModel.addGroupBy(subitem.value);
     this.panelCtrl.refresh();
   }
 
@@ -211,6 +205,11 @@ export class SqlQueryCtrl extends QueryCtrl {
     this.panelCtrl.refresh();
   }
 
+  dateColDataTypeChanged() {
+    this.target.dateColDataType = this.dateColDataTypeSegment.value;
+    this.panelCtrl.refresh();
+  }
+
   toggleEditorMode() {
     try {
       this.target.query = this.queryModel.render(false);
@@ -228,12 +227,10 @@ export class SqlQueryCtrl extends QueryCtrl {
   }
 
   getPartOptions(part) {
-    if (part.def.type === 'field') {
-      var fieldsQuery = this.queryBuilder.buildExploreQuery('TAG_KEYS');
-      return this.datasource.metricFindQuery(fieldsQuery)
-      .then(this.transformToSegments(true))
-      .catch(this.handleQueryError.bind(this));
-    }
+    var fieldsQuery = this.queryBuilder.buildExploreQuery('TAG_KEYS');
+    return this.datasource.metricFindQuery(fieldsQuery)
+    .then(this.transformToSegments(true))
+    .catch(this.handleQueryError.bind(this));
   }
 
   handleQueryError(err) {
@@ -276,7 +273,7 @@ export class SqlQueryCtrl extends QueryCtrl {
         ]));
       } else {
         return this.$q.when(this.uiSegmentSrv.newOperators([
-          '=', '<>', '<', '>'
+          '=', '<>', '<', '<=', '>', '>=', 'IN', 'NOT IN'
         ]));
       }
     }

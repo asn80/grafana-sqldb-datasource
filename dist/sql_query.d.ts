@@ -12,7 +12,7 @@ export default class SqlQuery {
     updateProjection(): void;
     updatePersistedParts(): void;
     hasGroupByTime(): any;
-    addGroupBy(value: any): void;
+    addGroupBy(type: any): void;
     removeGroupByPart(part: any, index: any): void;
     removeSelect(index: number): void;
     removeSelectPart(selectParts: any, part: any): void;

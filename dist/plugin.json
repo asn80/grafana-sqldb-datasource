@@ -8,7 +8,7 @@
   "annotations": true,
 
   "info": {
-    "description": "SqlDB data source for grafana",
+    "description": "SqlDB data source which provides support for MySQL, PostgreSQL and ClickHouse.",
     "author": {
       "name": "SRA OSS, Inc. Japan",
       "url": "http://www.sraoss.co.jp/"
@@ -20,8 +20,8 @@
     ],
     "screenshots": [
     ],
-    "version": "1.0",
-    "updated": "2016-07-13"
+    "version": "1.1",
+    "updated": "2017-03-12"
   },
 
   "dependencies": {

@@ -50,6 +50,7 @@ System.register(['./query_part_editor', 'angular', 'lodash', './query_builder', 
                     this.schemaSegment = uiSegmentSrv.newSegment(this.target.schema || { fake: true, value: '-- schema --' });
                     this.tableSegment = uiSegmentSrv.newSegment(this.target.table || { fake: true, value: '-- table --' });
                     this.timeColDataTypeSegment = uiSegmentSrv.newSegment(this.target.timeColDataType || { fake: true, value: '-- time : type --' });
+                    this.dateColDataTypeSegment = uiSegmentSrv.newSegment(this.target.dateColDataType || { value: 'date : Date' });
                     this.tagSegments = [];
                     for (var _i = 0, _a = this.target.tags; _i < _a.length; _i++) {
                         var tag = _a[_i];
@@ -68,10 +69,11 @@ System.register(['./query_part_editor', 'angular', 'lodash', './query_builder', 
                         this.tagSegments.push(uiSegmentSrv.newOperator(tag.operator));
                         this.tagSegments.push(uiSegmentSrv.newKeyValue(tag.value));
                     }
-                    this.groupBySegment = this.uiSegmentSrv.newPlusButton();
-                    //this.fixGroupBySegments();
                     this.fixTagSegments();
-                    this.buildSelectMenu();
+                    this.selectMenu = this.buildSelectMenu();
+                    this.groupByMenu = lodash_1.default.filter(this.selectMenu, function (e) {
+                        return e.text != 'Aggregations' && e.text != 'Selectors';
+                    });
                     this.removeTagFilterSegment = uiSegmentSrv.newSegment({
                         fake: true, value: '-- remove tag filter --'
                     });
@@ -93,15 +95,18 @@ System.register(['./query_part_editor', 'angular', 'lodash', './query_builder', 
                 }
                 */
                 SqlQueryCtrl.prototype.buildSelectMenu = function () {
+                    var dbms = this.queryModel.dbms;
                     var categories = query_part_1.default.getCategories();
-                    this.selectMenu = lodash_1.default.reduce(categories, function (memo, cat, key) {
+                    return lodash_1.default.reduce(categories, function (memo, cat, key) {
                         var menu = {
                             text: key,
-                            submenu: cat.map(function (item) {
-                                return { text: item.type, value: item.type };
-                            }),
+                            submenu: cat
+                                .filter(function (item) { return !item.dbms || item.dbms == dbms; })
+                                .map(function (item) { return { text: item.type, value: item.type }; })
                         };
-                        memo.push(menu);
+                        if (menu.submenu.length > 0) {
+                            memo.push(menu);
+                        }
                         return memo;
                     }, []);
                 };
@@ -120,22 +125,8 @@ System.register(['./query_part_editor', 'angular', 'lodash', './query_builder', 
                         return options;
                     }).catch(this.handleQueryError.bind(this));
                 };
-                /*
-                fixGroupBySegments() {
-                  var count = this.groupBySegment.length;
-                  var lastSegment = this.groupBySegment[Math.max(count-1, 0)];
-                  console.log(this.groupBySegment);
-              
-                  if (!lastSegment || lastSegment.type !== 'plus-button') {
-                    this.groupBySegment.push(this.uiSegmentSrv.newPlusButton());
-                  }
-                }
-                */
-                SqlQueryCtrl.prototype.groupByAction = function () {
-                    this.queryModel.addGroupBy(this.groupBySegment.value);
-                    var plusButton = this.uiSegmentSrv.newPlusButton();
-                    this.groupBySegment.value = plusButton.value;
-                    this.groupBySegment.html = plusButton.html;
+                SqlQueryCtrl.prototype.addGroupByPart = function (cat, subitem) {
+                    this.queryModel.addGroupBy(subitem.value);
                     this.panelCtrl.refresh();
                 };
                 SqlQueryCtrl.prototype.removeGroupByPart = function (part, index) {
@@ -184,6 +175,10 @@ System.register(['./query_part_editor', 'angular', 'lodash', './query_builder', 
                     this.target.timeColDataType = this.timeColDataTypeSegment.value;
                     this.panelCtrl.refresh();
                 };
+                SqlQueryCtrl.prototype.dateColDataTypeChanged = function () {
+                    this.target.dateColDataType = this.dateColDataTypeSegment.value;
+                    this.panelCtrl.refresh();
+                };
                 SqlQueryCtrl.prototype.toggleEditorMode = function () {
                     try {
                         this.target.query = this.queryModel.render(false);
@@ -200,12 +195,10 @@ System.register(['./query_part_editor', 'angular', 'lodash', './query_builder', 
                         .catch(this.handleQueryError.bind(this));
                 };
                 SqlQueryCtrl.prototype.getPartOptions = function (part) {
-                    if (part.def.type === 'field') {
-                        var fieldsQuery = this.queryBuilder.buildExploreQuery('TAG_KEYS');
-                        return this.datasource.metricFindQuery(fieldsQuery)
-                            .then(this.transformToSegments(true))
-                            .catch(this.handleQueryError.bind(this));
-                    }
+                    var fieldsQuery = this.queryBuilder.buildExploreQuery('TAG_KEYS');
+                    return this.datasource.metricFindQuery(fieldsQuery)
+                        .then(this.transformToSegments(true))
+                        .catch(this.handleQueryError.bind(this));
                 };
                 SqlQueryCtrl.prototype.handleQueryError = function (err) {
                     this.error = err.message || 'Failed to issue metric query';
@@ -247,7 +240,7 @@ System.register(['./query_part_editor', 'angular', 'lodash', './query_builder', 
                         }
                         else {
                             return this.$q.when(this.uiSegmentSrv.newOperators([
-                                '=', '<>', '<', '>'
+                                '=', '<>', '<', '<=', '>', '>=', 'IN', 'NOT IN'
                             ]));
                         }
                     }

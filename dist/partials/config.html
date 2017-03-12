@@ -4,7 +4,7 @@
 	<div class="gf-form-inline">
 		<div class="gf-form max-width-15">
 			<span class="gf-form-label width-7">DBMS</span>
-			<select class="input-medium tight-form-input" ng-model="ctrl.current.jsonData.dbms" ng-options="f for f in ['postgres', 'mysql']"></select>
+			<select class="input-medium tight-form-input" ng-model="ctrl.current.jsonData.dbms" ng-options="f for f in ['postgres', 'mysql', 'clickhouse']"></select>
 		</div>
 		<div class="gf-form max-width-15" ng-if="ctrl.current.jsonData.dbms === 'postgres'">
 			<span class="gf-form-label width-7">SSL</span>
@@ -13,32 +13,37 @@
 		</div>
 	</div>
 
-	<div class="gf-form-inline">
-		<div class="gf-form max-width-30">
-			<span class="gf-form-label width-7">Host</span>
-			<input type="text" class="gf-form-input" ng-model='ctrl.current.jsonData.host' placeholder="localhost" required></input>
-		</div>
-		<div class="gf-form max-width-30">
-			<span class="gf-form-label width-7">Port</span>
-			<input type="text" class="gf-form-input" ng-model='ctrl.current.jsonData.port' placeholder="5432" required></input>
-		</div>
-	</div>
+	<datasource-http-settings ng-if="ctrl.current.jsonData.dbms === 'clickhouse'" current="ctrl.current" suggest-url="http://localhost:8123">
+	</datasource-http-settings>
 
-	<div class="gf-form-inline">
-		<div class="gf-form max-width-30">
-			<span class="gf-form-label width-7">Database</span>
-			<input type="text" class="gf-form-input" ng-model='ctrl.current.database' placeholder="" required></input>
+	<div ng-if="ctrl.current.jsonData.dbms !== 'clickhouse'">
+		<div class="gf-form-inline">
+			<div class="gf-form max-width-30">
+				<span class="gf-form-label width-7">Host</span>
+				<input type="text" class="gf-form-input" ng-model='ctrl.current.jsonData.host' placeholder="localhost" required></input>
+			</div>
+			<div class="gf-form max-width-30">
+				<span class="gf-form-label width-7">Port</span>
+				<input type="text" class="gf-form-input" ng-model='ctrl.current.jsonData.port' placeholder="5432" required></input>
+			</div>
 		</div>
-	</div>
 
-	<div class="gf-form-inline">
-		<div class="gf-form max-width-30">
-			<span class="gf-form-label width-7">User</span>
-			<input type="text" class="gf-form-input" ng-model='ctrl.current.user' placeholder="" required></input>
+		<div class="gf-form-inline">
+			<div class="gf-form max-width-30">
+				<span class="gf-form-label width-7">Database</span>
+				<input type="text" class="gf-form-input" ng-model='ctrl.current.database' placeholder="" required></input>
+			</div>
 		</div>
-		<div class="gf-form max-width-30">
-			<span class="gf-form-label width-7">Password</span>
-			<input type="password" class="gf-form-input" ng-model='ctrl.current.password' placeholder="" required></input>
+
+		<div class="gf-form-inline">
+			<div class="gf-form max-width-30">
+				<span class="gf-form-label width-7">User</span>
+				<input type="text" class="gf-form-input" ng-model='ctrl.current.user' placeholder=""></input>
+			</div>
+			<div class="gf-form max-width-30">
+				<span class="gf-form-label width-7">Password</span>
+				<input type="password" class="gf-form-input" ng-model='ctrl.current.password' placeholder=""></input>
+			</div>
 		</div>
 	</div>
 </div>

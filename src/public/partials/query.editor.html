@@ -28,10 +28,14 @@
 		</div>
 
 		<div class="gf-form-inline">
+			<div class="gf-form"  ng-if="ctrl.queryModel.dbms === 'clickhouse'">
+				<label class="gf-form-label query-keyword width-7">DATE</label>
+
+				<metric-segment segment="ctrl.dateColDataTypeSegment" get-options="ctrl.getTimeColDataTypeSegments()" on-change="ctrl.dateColDataTypeChanged()"></metric-segment>
+			</div>
+
 			<div class="gf-form">
-				<label class="gf-form-label query-keyword width-7">
-					<span>TIME : TYPE</span>
-				</label>
+				<label class="gf-form-label query-keyword width-7">TIME : TYPE</label>
 			</div>
 
 			<div class="gf-form">
@@ -89,11 +93,10 @@
 			</div>
 
             <div class="gf-form">
-				<metric-segment
-					segment="ctrl.groupBySegment"
-					get-options="ctrl.getGroupByOptions()"
-					on-change="ctrl.groupByAction(part, $index)">
-				</metric-segment>
+            	<label class="dropdown"
+            		dropdown-typeahead="ctrl.groupByMenu"
+            		dropdown-typeahead-on-select="ctrl.addGroupByPart($item, $subItem)">
+            	</label>
             </div>
 
 			<div class="gf-form gf-form--grow">

@@ -1,6 +1,7 @@
 ///<reference path="app/headers/common.d.ts" />
 
 import _ from 'lodash';
+import extraFunctions from './query_part_funcs';
 
 var index = {};
 var categories = {
@@ -19,6 +20,7 @@ class QueryPartDef {
   renderer: any;
   category: any;
   addStrategy: any;
+  dbms: any[];
 
   constructor(options: any) {
     this.type = options.type;
@@ -27,6 +29,7 @@ class QueryPartDef {
     this.renderer = options.renderer;
     this.category = options.category;
     this.addStrategy = options.addStrategy;
+    this.dbms = options.dbms;
   }
 
   static register(options: any) {
@@ -82,7 +85,7 @@ function parametricFunctionRenderer(part, innerExpr) {
 }
 
 function aliasRenderer(part, innerExpr) {
-  return innerExpr + ' AS ' + '"' + part.params[0] + '"';
+  return innerExpr + ' AS ' + part.params[0];
 }
 
 function suffixRenderer(part, innerExpr) {
@@ -219,6 +222,7 @@ QueryPartDef.register({
 QueryPartDef.register(_.assign({}, partDefault.Aggregations, { type: 'count' }));
 QueryPartDef.register(_.assign({}, partDefault.Aggregations, { type: 'avg' }));
 QueryPartDef.register(_.assign({}, partDefault.Aggregations, { type: 'sum' }));
+QueryPartDef.register(_.assign({}, partDefault.Aggregations, { type: 'median' }));
 
 // transformations
 
@@ -258,6 +262,40 @@ QueryPartDef.register({
   defaultParams: ['alias'],
   renderMode: 'suffix',
   renderer: aliasRenderer,
+});
+
+// Include dbms specific functions
+_.each(extraFunctions, (functionCategories, dbms) => {
+  _.each(functionCategories, (functions, category) => {
+    /* Break to category and subcategory */
+    var catItem = category.split('_');
+    var categorySub = null;
+    if (catItem[1]) {
+      if (!categories[catItem[1]]) {
+        categories[catItem[1]] = [];
+      }
+      categorySub = categories[catItem[1]];
+    }
+    var defaults = partDefault[catItem[0]];
+    /* Register all function specs with updated defaults */
+    _.each(functions, spec => {
+      if (spec.renderer) {
+        spec.renderer = partRenderer[spec.renderer];
+      }
+      if (categorySub) {
+        spec.category = categorySub;
+      }
+      spec.dbms = dbms;
+      /* Update defaults, the object allocations are kind
+         of sluggish here, so let's make it less pretty */
+      for (var k in defaults) {
+        if (spec[k] === undefined) {
+          spec[k] = defaults[k];
+        }
+      }
+      QueryPartDef.register(spec);
+    });
+  });
 });
 
 class QueryPart {
@@ -340,6 +378,9 @@ export default {
         break;
       case 'mysql':
         rtn = { 'match': 'REGEXP', 'not': 'NOT REGEXP' };
+        break;
+      case 'clickhouse':
+        rtn = { 'match': 'LIKE', 'not': 'NOT LIKE' };
         break;
       default:
         break;

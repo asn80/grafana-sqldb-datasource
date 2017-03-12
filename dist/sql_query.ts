@@ -55,16 +55,13 @@ export default class SqlQuery {
     return _.find(this.target.groupBy, (g: any) => g.type === 'time');
   }
 
-  addGroupBy(value) {
-    var stringParts = value.match(/^(\w+)\((.*)\)$/);
-    var typePart = stringParts[1];
-    var arg = stringParts[2];
-    var partModel = queryPart.create({type: typePart, params: [arg]});
+  addGroupBy(type) {
+    var partModel = queryPart.create({type: type});
     var partCount = this.target.groupBy.length;
 
     if (partCount === 0) {
       this.target.groupBy.push(partModel.part);
-    } else if (typePart === 'time') {
+    } else if (type === 'time') {
       this.target.groupBy.splice(0, 0, partModel.part);
     } else {
       this.target.groupBy.push(partModel.part);
@@ -126,9 +123,6 @@ export default class SqlQuery {
     var str = "";
     var operator = tag.operator;
     var value = tag.value;
-    if (index > 0) {
-      str = (tag.condition || 'AND') + ' ';
-    }
 
     if (!operator) {
       if (/^\/.*\/$/.test(value)) {
@@ -138,22 +132,52 @@ export default class SqlQuery {
       }
     }
 
-    // quote value unless regex
+    // quote value unless regex or number(s)
     var matchOperators = queryPart.getMatchOperators(this.dbms);
-    if (!matchOperators || (operator !== matchOperators.match && operator !== matchOperators.not)) {
+    if (operator.indexOf('IN') > -1) {
+      // IN/NOT IN operators may have a tupe on the right side
+      value = value.replace(/[()]/g, '');
       if (interpolate) {
         value = this.templateSrv.replace(value, this.scopedVars);
+        // Support wildcard values to behave like regular filters
+        if (value === '*') {
+          return str;
+        }
       }
-      if (operator !== '>' && operator !== '<') {
+      // Check if the array is all numbers
+      var values = value.split(',');
+      var intArray = _.reduce(values, (memo, x) => {
+        return memo && !isNaN(+x);
+      }, true);
+      // Force quotes and braces
+      for (var i in values) {
+        values[i] = values[i].replace(/\'\"/,'');
+        if (!intArray) {
+          values[i] = "'" + values[i].replace('\\', '\\\\') + "'";
+        }
+      }
+      value = '(' + values.join(', ') + ')';
+    } else if (!matchOperators || (operator !== matchOperators.match && operator !== matchOperators.not)) {
+      if (interpolate) {
+        value = this.templateSrv.replace(value, this.scopedVars);
+        if (value === '*') {
+          return str;
+        }
+      }
+
+      if (!operator.startsWith('>') && !operator.startsWith('<') && isNaN(+value)) {
         value = "'" + value.replace('\\', '\\\\') + "'";
       }
-    } else if (interpolate){
+    } else if (interpolate) {
       value = this.templateSrv.replace(value, this.scopedVars, 'regex');
       value = "'" + value.replace(/^\//, '').replace(/\/$/, '') + "'";
-    } else {
+    } else if (isNaN(+value)) {
       value = "'" + value.replace(/^\//, '').replace(/\/$/, '') + "'";
     }
 
+    if (index > 0) {
+      str = (tag.condition || 'AND') + ' ';
+    }
     return str + tag.key + ' ' + operator + ' ' + value;
   }
 
@@ -182,6 +206,16 @@ export default class SqlQuery {
     var target = this.target;
 
     if (target.rawQuery) {
+      /* There is no structural information about raw query, so best
+         effort parse the GROUP BY column to be able to detect series.
+         Only grouped by expressions or their aliases are inferred. */
+      var parts = /GROUP BY (.+)\s*(?:ORDER|LIMIT|HAVING|$)/.exec(target.query);
+      if (parts) {
+        var last = parts[parts.length - 1];
+        target.groupBy = _.map(last.split(','), (e, i) => {
+          return {type: i > 0 ? 'field' : 'time', params: [e.trim()]};
+        });
+      }
       if (interpolate) {
         return this.templateSrv.replace(target.query, this.scopedVars, 'regex');
       } else {
@@ -190,34 +224,50 @@ export default class SqlQuery {
     }
 
     var hasTimeGroupBy = false;
-    var groupByClause = '';
+    var selectClause = [];
+    var groupByClause = [];
     var orderByClause = '';
-
-    var query = 'SELECT ';
+    var usePositions = (this.dbms !== 'clickhouse');
 
     if (target.groupBy.length !== 0) {
       _.each(this.target.groupBy, function(groupBy, i) {
-        if (i !== 0) {
-            query += ', ';
-            groupByClause += ', ';
-        }
 
+        var alias = null;
         switch (groupBy.type) {
           case 'time':
-            query += '$unixtimeColumn * 1000 AS time_msec';
+            selectClause.push('$unixtimeColumn * 1000 AS time_msec');
+            if (!usePositions) {
+              alias = 'time_msec';
+            }
             break;
 
-          case 'tag':
-            query += groupBy.params[0];
+          case 'alias':
+            var part = selectClause.pop();
+            selectClause.push(queryPart.create(groupBy).render(part));
+            groupByClause.pop();
+            alias = groupBy.params[0];
             break;
 
           default:
-            return;
+            var part = queryPart.create(groupBy).render();
+            selectClause.push(part);
+            if (!usePositions) {
+              alias = part;
+            }
+            break;
         }
-        groupByClause += (i + 1);
-      });
 
-      query += ', ';
+        if (alias !== null) {
+          groupByClause.push(alias);
+        } else {
+          groupByClause.push((i + 1).toFixed(0));
+        }
+      });
+    }
+
+    var query = 'SELECT ';
+    if (selectClause.length > 0) {
+      query += selectClause.join(', ') + ', ';
     }
 
     var i, j;
@@ -245,11 +295,11 @@ export default class SqlQuery {
     query += conditions.join(' ');
     query += (conditions.length > 0 ? ' AND ' : '') + '$timeFilter';
 
-    if (groupByClause) {
-      query += ' GROUP BY ' + groupByClause;
+    if (groupByClause.length > 0) {
+      query += ' GROUP BY ' + groupByClause.join(', ');
     }
 
-    orderByClause = groupByClause || targetList;
+    orderByClause = groupByClause.join(', ') || targetList;
     query += ' ORDER BY ' + orderByClause;
 
     return query;
