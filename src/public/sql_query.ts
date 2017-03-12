@@ -55,16 +55,13 @@ export default class SqlQuery {
     return _.find(this.target.groupBy, (g: any) => g.type === 'time');
   }
 
-  addGroupBy(value) {
-    var stringParts = value.match(/^(\w+)\((.*)\)$/);
-    var typePart = stringParts[1];
-    var arg = stringParts[2];
-    var partModel = queryPart.create({type: typePart, params: [arg]});
+  addGroupBy(type) {
+    var partModel = queryPart.create({type: type});
     var partCount = this.target.groupBy.length;
 
     if (partCount === 0) {
       this.target.groupBy.push(partModel.part);
-    } else if (typePart === 'time') {
+    } else if (type === 'time') {
       this.target.groupBy.splice(0, 0, partModel.part);
     } else {
       this.target.groupBy.push(partModel.part);
@@ -190,34 +187,35 @@ export default class SqlQuery {
     }
 
     var hasTimeGroupBy = false;
-    var groupByClause = '';
+    var selectClause = [];
+    var groupByClause = [];
     var orderByClause = '';
-
-    var query = 'SELECT ';
 
     if (target.groupBy.length !== 0) {
       _.each(this.target.groupBy, function(groupBy, i) {
-        if (i !== 0) {
-            query += ', ';
-            groupByClause += ', ';
-        }
 
         switch (groupBy.type) {
           case 'time':
-            query += '$unixtimeColumn * 1000 AS time_msec';
+            selectClause.push('$unixtimeColumn * 1000 AS time_msec');
             break;
 
-          case 'tag':
-            query += groupBy.params[0];
+          case 'alias':
+            var part = selectClause.pop();
+            selectClause.push(queryPart.create(groupBy).render(part));
+            groupByClause.pop();
             break;
 
           default:
-            return;
+            var part = queryPart.create(groupBy).render();
+            selectClause.push(part);
+            break;
         }
-        groupByClause += (i + 1);
+          groupByClause.push((i + 1).toFixed(0));
       });
 
-      query += ', ';
+    var query = 'SELECT ';
+    if (selectClause.length > 0) {
+      query += selectClause.join(', ') + ', ';
     }
 
     var i, j;
@@ -245,11 +243,11 @@ export default class SqlQuery {
     query += conditions.join(' ');
     query += (conditions.length > 0 ? ' AND ' : '') + '$timeFilter';
 
-    if (groupByClause) {
-      query += ' GROUP BY ' + groupByClause;
+    if (groupByClause.length > 0) {
+      query += ' GROUP BY ' + groupByClause.join(', ');
     }
 
-    orderByClause = groupByClause || targetList;
+    orderByClause = groupByClause.join(', ') || targetList;
     query += ' ORDER BY ' + orderByClause;
 
     return query;

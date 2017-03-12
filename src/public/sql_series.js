@@ -9,8 +9,15 @@ function (_, TableModel) {
     this.series = options.series;
     this.table = options.table;
     this.alias = options.alias;
-    this.groupBy = options.groupBy;
     this.annotation = options.annotation;
+    /* Flatten aliases */
+    this.groupBy = _.reduce(options.groupBy, function(memo, v) {
+      if (v.type == 'alias') {
+        memo.pop();
+      }
+      memo.push(v);
+      return memo;
+    }, []);
   }
 
   var p = SqlSeries.prototype;
