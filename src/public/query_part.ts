@@ -59,6 +59,29 @@ function functionRenderer(part, innerExpr) {
   return str + parameters.join(', ') + ')';
 }
 
+function parametricFunctionRenderer(part, innerExpr) {
+  var str = part.def.type;
+  var parameters = _.map(part.params, (value, index) => {
+    var paramType = part.def.params[index];
+    if (paramType.type === 'time') {
+      if (value === 'auto') {
+        value = '$interval';
+      }
+    }
+    if (paramType.quote === 'single') {
+      return "'" + value + "'";
+    } else if (paramType.quote === 'double') {
+      return '"' + value + '"';
+    }
+    return value;
+  });
+
+  if (innerExpr) {
+    parameters.unshift(innerExpr);
+  }
+  return str + '(' + parameters.pop() + ')(' + parameters.join(', ') + ')';
+}
+
 function aliasRenderer(part, innerExpr) {
   return innerExpr + ' AS ' + '"' + part.params[0] + '"';
 }
