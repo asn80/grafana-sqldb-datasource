@@ -7,6 +7,14 @@ module.exports = function(grunt) {
   grunt.initConfig({
     clean: ['src_gen', 'dist'],
 
+    watch: {
+      rebuild_all: {
+        files: ['src/**/*'],
+        tasks: ['default'],
+        options: {spawn: false}
+      }
+    },
+
     copy: {
       src_js: {
         expand: true,
