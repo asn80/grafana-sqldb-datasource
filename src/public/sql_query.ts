@@ -138,19 +138,19 @@ export default class SqlQuery {
       }
     }
 
-    // quote value unless regex
+    // quote value unless regex or number
     var matchOperators = queryPart.getMatchOperators(this.dbms);
     if (!matchOperators || (operator !== matchOperators.match && operator !== matchOperators.not)) {
       if (interpolate) {
         value = this.templateSrv.replace(value, this.scopedVars);
       }
-      if (operator !== '>' && operator !== '<') {
+      if (operator !== '>' && operator !== '<' && isNaN(+value)) {
         value = "'" + value.replace('\\', '\\\\') + "'";
       }
     } else if (interpolate){
       value = this.templateSrv.replace(value, this.scopedVars, 'regex');
       value = "'" + value.replace(/^\//, '').replace(/\/$/, '') + "'";
-    } else {
+    } else if (isNaN(+value)) {
       value = "'" + value.replace(/^\//, '').replace(/\/$/, '') + "'";
     }
 
