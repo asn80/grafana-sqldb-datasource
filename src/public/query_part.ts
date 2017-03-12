@@ -2,16 +2,15 @@
 
 import _ from 'lodash';
 
-var index = [];
+var index = {};
 var categories = {
   Aggregations: [],
   Selectors: [],
   Math: [],
+  Transform: [],
   Aliasing: [],
   Fields: [],
 };
-
-var groupByTimeFunctions = [];
 
 class QueryPartDef {
   type: string;
@@ -160,6 +159,53 @@ function addFieldStrategy(selectParts, partModel, query) {
   query.selectModels.push(parts);
 }
 
+function addTransformStrategy(selectParts, partModel) {
+  var partCount = selectParts.length;
+  if (partCount > 0) {
+    // if last is alias add it before
+    if (selectParts[partCount-1].def.type === 'alias') {
+      selectParts.splice(partCount-1, 0, partModel);
+      return;
+    }
+  }
+  selectParts.push(partModel);
+}
+
+// Defaults
+var partRenderer = {
+  functionRenderer: functionRenderer,
+  parametricFunctionRenderer: parametricFunctionRenderer,
+  aliasRenderer: aliasRenderer,
+  suffixRenderer: suffixRenderer,
+  identityRenderer: identityRenderer,
+  quotedIdentityRenderer: quotedIdentityRenderer,
+  fieldRenderer: fieldRenderer
+}
+
+var partDefault = {
+  Aggregations: {
+    addStrategy: replaceAggregationAddStrategy,
+    category: categories.Aggregations,
+    params: [],
+    defaultParams: [],
+    renderer: functionRenderer,
+  },
+  Selectors: {
+    addStrategy: replaceAggregationAddStrategy,
+    category: categories.Selectors,
+    params: [],
+    defaultParams: [],
+    renderer: functionRenderer,
+  },
+  Transform: {
+    addStrategy: addTransformStrategy,
+    renderer: functionRenderer,
+    params: [],
+    defaultParams: [],
+    category: categories.Transform,
+  },
+};
+
 QueryPartDef.register({
   type: 'field',
   addStrategy: addFieldStrategy,
@@ -170,66 +216,26 @@ QueryPartDef.register({
 });
 
 // Aggregations
-QueryPartDef.register({
-  type: 'count',
-  addStrategy: replaceAggregationAddStrategy,
-  category: categories.Aggregations,
-  params: [],
-  defaultParams: [],
-  renderer: functionRenderer,
-});
-
-QueryPartDef.register({
-  type: 'avg',
-  addStrategy: replaceAggregationAddStrategy,
-  category: categories.Aggregations,
-  params: [],
-  defaultParams: [],
-  renderer: functionRenderer,
-});
-
-QueryPartDef.register({
-  type: 'sum',
-  addStrategy: replaceAggregationAddStrategy,
-  category: categories.Aggregations,
-  params: [],
-  defaultParams: [],
-  renderer: functionRenderer,
-});
+QueryPartDef.register(_.assign({}, partDefault.Aggregations, { type: 'count' }));
+QueryPartDef.register(_.assign({}, partDefault.Aggregations, { type: 'avg' }));
+QueryPartDef.register(_.assign({}, partDefault.Aggregations, { type: 'sum' }));
 
 // transformations
 
-QueryPartDef.register({
+QueryPartDef.register(_.assign({}, partDefault.Transform, {
   type: 'time',
-  category: groupByTimeFunctions,
   params: [{ name: "interval", type: "time", options: ['auto', '1s', '10s', '1m', '5m', '10m', '15m', '1h'] }],
   defaultParams: ['auto'],
-  renderer: functionRenderer,
-});
+}));
 
 // Selectors
 
-QueryPartDef.register({
-  type: 'max',
-  addStrategy: replaceAggregationAddStrategy,
-  category: categories.Selectors,
-  params: [],
-  defaultParams: [],
-  renderer: functionRenderer,
-});
-
-QueryPartDef.register({
-  type: 'min',
-  addStrategy: replaceAggregationAddStrategy,
-  category: categories.Selectors,
-  params: [],
-  defaultParams: [],
-  renderer: functionRenderer,
-});
+QueryPartDef.register(_.assign({}, partDefault.Selectors, { type: 'max' }));
+QueryPartDef.register(_.assign({}, partDefault.Selectors, { type: 'min' }));
 
 QueryPartDef.register({
   type: 'tag',
-  category: groupByTimeFunctions,
+  category: categories.Fields,
   params: [{name: 'tag', type: 'string', dynamicLookup: true}],
   defaultParams: ['tag'],
   renderer: fieldRenderer,
