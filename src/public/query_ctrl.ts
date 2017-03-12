@@ -18,6 +18,7 @@ export class SqlQueryCtrl extends QueryCtrl {
   resultFormats: any[];
   schemaSegment: any;
   timeColDataTypeSegment: any;
+  dateColDataTypeSegment: any;
   tagSegments: any[];
   selectMenu: any;
   tableSegment: any;
@@ -57,6 +58,10 @@ export class SqlQueryCtrl extends QueryCtrl {
 
     this.timeColDataTypeSegment = uiSegmentSrv.newSegment(
       this.target.timeColDataType || {fake: true, value: '-- time : type --'}
+    );
+
+    this.dateColDataTypeSegment = uiSegmentSrv.newSegment(
+      this.target.dateColDataType || {value: 'date : Date'}
     );
 
     this.tagSegments = [];
@@ -210,6 +215,11 @@ export class SqlQueryCtrl extends QueryCtrl {
 
   timeColDataTypeChanged() {
     this.target.timeColDataType = this.timeColDataTypeSegment.value;
+    this.panelCtrl.refresh();
+  }
+
+  dateColDataTypeChanged() {
+    this.target.dateColDataType = this.dateColDataTypeSegment.value;
     this.panelCtrl.refresh();
   }
 

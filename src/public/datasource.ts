@@ -228,10 +228,18 @@ export default class SqlDatasource {
       var isToNow = (options.rangeRaw.to === 'now');
 
       var timeFilter = this._getTimeFilter(isToNow);
+      if (target.dateCol) {
+        timeFilter += ' AND ' + this._getDateFilter(isToNow);
+      }
       query = query.replace(/\$timeFilter/g, timeFilter);
 
       query = query.replace(/\$from/g, from);
       query = query.replace(/\$to/g, to);
+
+      from = this._getSubTimestamp(options.rangeRaw.from, target.dateDataType || 'date', false);
+      to = this._getSubTimestamp(options.rangeRaw.to, target.dateDataType || 'date', true);
+      query = query.replace(/\$dateFrom/g, from);
+      query = query.replace(/\$dateTo/g, to);
 
       from = this._getSubTimestamp(options.rangeRaw.from, 'numeric', false);
       to = this._getSubTimestamp(options.rangeRaw.to, 'numeric', true);
@@ -247,6 +255,7 @@ export default class SqlDatasource {
       query = query.replace(/\$unixtimeColumn/g, unixtimeColumn);
 
       query = query.replace(/\$timeColumn/g, target.timeCol);
+      query = query.replace(/\$dateColumn/g, target.dateCol);
 
       var autoIntervalNum = this._getIntervalNum(target.interval || options.interval);
       query = query.replace(/\$interval/g, autoIntervalNum);
@@ -256,11 +265,16 @@ export default class SqlDatasource {
 
   _getTimeFilter(isToNow) {
     if (isToNow) {
-      return '$timeColumn > $from';
-
-    } else {
-      return '$timeColumn > $from AND $timeColumn < $to';
+      return '$timeColumn >= $from';
     }
+    return '$timeColumn >= $from AND $timeColumn <= $to';
+  }
+
+  _getDateFilter(isToNow) {
+    if (isToNow) {
+      return '$dateColumn >= $dateFrom';
+    }
+    return '$dateColumn >= $dateFrom AND $dateColumn <= $dateTo';
   }
 
   _getSubTimestamp(date, toDataType, roundUp) {
