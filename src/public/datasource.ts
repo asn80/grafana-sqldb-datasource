@@ -198,11 +198,16 @@ export default class SqlDatasource {
     var options: any = {
       method: method,
       url:    this.url + url,
-      data:   data,
       precision: "ms",
       inspect: { type: 'sqldb' },
       paramSerializer: this.serializeParams,
     };
+
+    if (method == 'POST') {
+      options.data = data;
+    } else {
+      options.params = data;
+    }
 
     return this.backendSrv.datasourceRequest(options).then(result => {
       return result.data;
