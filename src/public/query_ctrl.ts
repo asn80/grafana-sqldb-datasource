@@ -113,7 +113,9 @@ export class SqlQueryCtrl extends QueryCtrl {
          return {text: item.type, value: item.type};
         }),
       };
-      memo.push(menu);
+      if (menu.submenu.length > 0) {
+        memo.push(menu);
+      }
       return memo;
     }, []);
   }
