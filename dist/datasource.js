@@ -1,6 +1,6 @@
 ///<reference path="app/headers/common.d.ts" />
-System.register(['lodash', 'app/core/utils/datemath', './sql_series', './sql_query', './response_parser'], function(exports_1) {
-    var lodash_1, dateMath, sql_series_1, sql_query_1, response_parser_1;
+System.register(['lodash', 'app/core/utils/datemath', './sql_series', './sql_query', './response_parser', './query_builder', './query_part'], function(exports_1) {
+    var lodash_1, dateMath, sql_series_1, sql_query_1, response_parser_1, query_builder_1, query_part_1;
     var SqlDatasource;
     return {
         setters:[
@@ -18,6 +18,12 @@ System.register(['lodash', 'app/core/utils/datemath', './sql_series', './sql_que
             },
             function (response_parser_1_1) {
                 response_parser_1 = response_parser_1_1;
+            },
+            function (query_builder_1_1) {
+                query_builder_1 = query_builder_1_1;
+            },
+            function (query_part_1_1) {
+                query_part_1 = query_part_1_1;
             }],
         execute: function() {
             SqlDatasource = (function () {
@@ -37,7 +43,16 @@ System.register(['lodash', 'app/core/utils/datemath', './sql_series', './sql_que
                     this.responseParser = new response_parser_1.default();
                     this.url = instanceSettings.url;
                     this.dbms = (instanceSettings.jsonData || {}).dbms;
+                    this.queryBuilder = new query_builder_1.default({ dbms: this.dbms }, this.dbms, { matchOperators: query_part_1.default.getMatchOperators(this.dbms) });
                 }
+                SqlDatasource.prototype.getTagKeys = function () {
+                    var timeColQuery = this.queryBuilder.buildExploreQuery('TAG_KEYS');
+                    return this.metricFindQuery(timeColQuery);
+                };
+                SqlDatasource.prototype.getTagValues = function (options) {
+                    var timeColQuery = this.queryBuilder.buildExploreQuery('TAG_VALUES');
+                    return this.metricFindQuery(timeColQuery);
+                };
                 SqlDatasource.prototype.query = function (options) {
                     var _this = this;
                     var queryTargets = [];
@@ -63,6 +78,9 @@ System.register(['lodash', 'app/core/utils/datemath', './sql_series', './sql_que
                         if (timeColType === undefined) {
                             return [];
                         }
+                        /* Support Ad-Hoc filters */
+                        var filters = _this.templateSrv.getAdhocFilters(_this.name);
+                        target.filters = lodash_1.default.union(filters, target.tags);
                         queryTargets.push(target);
                         var arr = timeColType.split(':');
                         target.timeCol = arr[0].trim();
@@ -134,10 +152,10 @@ System.register(['lodash', 'app/core/utils/datemath', './sql_series', './sql_que
                         castTimeCol += ' * 1000';
                         options.annotation.query =
                             'SELECT ' +
-                                castTimeCol + ' AS "time", ' +
-                                (options.annotation.tags || 'NULL') + ' AS "tags", ' +
-                                (options.annotation.title || 'NULL') + ' AS "title", ' +
-                                (options.annotation.text || 'NULL') + ' AS "text" ' +
+                                castTimeCol + ' AS time, ' +
+                                (options.annotation.tags || 'NULL') + ' AS tags, ' +
+                                (options.annotation.title || 'NULL') + ' AS title, ' +
+                                (options.annotation.text || 'NULL') + ' AS text ' +
                                 'FROM ' + options.annotation.schema + '.' + options.annotation.table + ' ' +
                                 'WHERE $timeFilter';
                     }

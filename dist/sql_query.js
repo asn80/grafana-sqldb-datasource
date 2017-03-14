@@ -23,6 +23,7 @@ System.register(['lodash', './query_part'], function(exports_1) {
                     target.timeColDataType = target.timeColDataType;
                     target.resultFormat = target.resultFormat || 'time_series';
                     target.tags = target.tags || [];
+                    target.filters = target.filters || [];
                     target.groupBy = target.groupBy || [
                         { type: 'time', params: ['$interval'] },
                     ];
@@ -118,6 +119,15 @@ System.register(['lodash', './query_part'], function(exports_1) {
                             operator = '=';
                         }
                     }
+                    // Support wildcard values to behave like regular filters
+                    if (interpolate) {
+                        for (var i in this.templateSrv.variables) {
+                            var v = this.templateSrv.variables[i];
+                            if (v.name == value.slice(1) && this.templateSrv.isAllValue(v.current.value)) {
+                                return str;
+                            }
+                        }
+                    }
                     // quote value unless regex or number(s)
                     var matchOperators = query_part_1.default.getMatchOperators(this.dbms);
                     if (operator.indexOf('IN') > -1) {
@@ -125,13 +135,9 @@ System.register(['lodash', './query_part'], function(exports_1) {
                         value = value.replace(/[()]/g, '');
                         if (interpolate) {
                             value = this.templateSrv.replace(value, this.scopedVars);
-                            // Support wildcard values to behave like regular filters
-                            if (value === '*') {
-                                return str;
-                            }
                         }
                         // Check if the array is all numbers
-                        var values = value.split(',');
+                        var values = lodash_1.default.map(value.split(','), function (x) { return x.trim(); });
                         var intArray = lodash_1.default.reduce(values, function (memo, x) {
                             return memo && !isNaN(+x);
                         }, true);
@@ -139,7 +145,7 @@ System.register(['lodash', './query_part'], function(exports_1) {
                         for (var i in values) {
                             values[i] = values[i].replace(/\'\"/, '');
                             if (!intArray) {
-                                values[i] = "'" + values[i].replace('\\', '\\\\') + "'";
+                                values[i] = "'" + value.replace(/\\/g, '\\\\') + "'";
                             }
                         }
                         value = '(' + values.join(', ') + ')';
@@ -147,12 +153,9 @@ System.register(['lodash', './query_part'], function(exports_1) {
                     else if (!matchOperators || (operator !== matchOperators.match && operator !== matchOperators.not)) {
                         if (interpolate) {
                             value = this.templateSrv.replace(value, this.scopedVars);
-                            if (value === '*') {
-                                return str;
-                            }
                         }
                         if (!operator.startsWith('>') && !operator.startsWith('<') && isNaN(+value)) {
-                            value = "'" + value.replace('\\', '\\\\') + "'";
+                            value = "'" + value.replace(/\\/g, '\\\\') + "'";
                         }
                     }
                     else if (interpolate) {
@@ -200,7 +203,12 @@ System.register(['lodash', './query_part'], function(exports_1) {
                             });
                         }
                         if (interpolate) {
-                            return this.templateSrv.replace(target.query, this.scopedVars, 'regex');
+                            var q = this.templateSrv.replace(target.query, this.scopedVars, 'regex');
+                            /* Support filter expansion in raw queries as well. */
+                            var conditions = lodash_1.default.map(target.filters, function (tag, index) {
+                                return _this.renderTagCondition(tag, index, interpolate);
+                            });
+                            return q.replace(/\$filter/, (conditions.length > 0 ? conditions.join(' ') : '1'));
                         }
                         else {
                             return target.query;
@@ -263,7 +271,7 @@ System.register(['lodash', './query_part'], function(exports_1) {
                     }
                     query += targetList;
                     query += ' FROM ' + this.gettableAndSchema(interpolate) + ' WHERE ';
-                    var conditions = lodash_1.default.map(target.tags, function (tag, index) {
+                    var conditions = lodash_1.default.map(target.filters, function (tag, index) {
                         return _this.renderTagCondition(tag, index, interpolate);
                     });
                     query += conditions.join(' ');

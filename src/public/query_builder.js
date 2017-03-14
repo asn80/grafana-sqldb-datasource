@@ -67,13 +67,13 @@ function (_) {
       },
 
       clickhouse: {
-        defaults: {schema: 'default', colType: 'name || \' : \' || type'},
+        defaults: {schema: 'default', colType: 'name || \' : \' || type', table: '%', schema: '%'},
         SCHEMA: 'SELECT name FROM system.databases ORDER BY name',
-        TABLES: 'SELECT name FROM system.tables WHERE database = \'${schema}\' ORDER BY name',
+        TABLES: 'SELECT distinct(name) FROM system.tables WHERE database LIKE \'${schema}\' ORDER BY name',
         FIELDS: 'SELECT ${colType} as col FROM system.columns ' +
-                'WHERE database = \'${schema}\' AND table = \'${table}\' ORDER BY col',
-        TAG_KEYS: 'SELECT name FROM system.columns ' +
-                  'WHERE database = \'${schema}\' AND table = \'${table}\' ORDER BY name',
+                'WHERE database LIKE \'${schema}\' AND table LIKE \'${table}\' ORDER BY col',
+        TAG_KEYS: 'SELECT distinct(name) FROM system.columns ' +
+                  'WHERE database LIKE \'${schema}\' AND table LIKE \'${table}\' ORDER BY name',
         TAG_VALUES: 'SELECT 1',
         SET_DEFAULT: 'SELECT 1'
       }
@@ -108,8 +108,8 @@ function (_) {
       query += ' FROM ' + table;
     }
 
-    if (this.target.tags && this.target.tags.length > 0) {
-      var whereConditions = _.reduce(this.target.tags, function(memo, tag) {
+    if (this.target.filters && this.target.filters.length > 0) {
+      var whereConditions = _.reduce(this.target.filters, function(memo, tag) {
         // do not add a condition for the key we want to explore for
         if (tag.key === withKey) {
           return memo;

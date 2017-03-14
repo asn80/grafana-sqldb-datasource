@@ -14,8 +14,11 @@ export default class SqlDatasource {
     responseParser: any;
     url: string;
     dbms: string;
+    queryBuilder: any;
     /** @ngInject */
     constructor(instanceSettings: any, $q: any, backendSrv: any, templateSrv: any);
+    getTagKeys(): any;
+    getTagValues(options: any): any;
     query(options: any): any;
     annotationQuery(options: any): any;
     metricFindQuery(query: any): any;

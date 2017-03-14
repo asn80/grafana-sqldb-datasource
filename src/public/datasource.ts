@@ -8,6 +8,7 @@ import SqlSeries from './sql_series';
 import SqlQuery from './sql_query';
 import ResponseParser from './response_parser';
 import SqlQueryBuilder from './query_builder';
+import queryPart from './query_part';
 
 export default class SqlDatasource {
   type: string;
@@ -21,6 +22,7 @@ export default class SqlDatasource {
   responseParser: any;
   url: string;
   dbms: string;
+  queryBuilder: any;
 
   /** @ngInject */
   constructor(instanceSettings, private $q, private backendSrv, private templateSrv) {
@@ -36,6 +38,19 @@ export default class SqlDatasource {
     this.responseParser = new ResponseParser();
     this.url = instanceSettings.url;
     this.dbms = (instanceSettings.jsonData || {}).dbms;
+    this.queryBuilder = new SqlQueryBuilder(
+      {dbms: this.dbms}, this.dbms, { matchOperators: queryPart.getMatchOperators(this.dbms) }
+    );
+  }
+
+  getTagKeys() {
+    var timeColQuery = this.queryBuilder.buildExploreQuery('TAG_KEYS');
+    return this.metricFindQuery(timeColQuery)
+  }
+  
+  getTagValues(options) {
+    var timeColQuery = this.queryBuilder.buildExploreQuery('TAG_VALUES');
+    return this.metricFindQuery(timeColQuery)
   }
 
   query(options) {
@@ -62,6 +77,10 @@ export default class SqlDatasource {
       if (timeColType === undefined) {
         return [];
       }
+
+      /* Support Ad-Hoc filters */
+      var filters = this.templateSrv.getAdhocFilters(this.name);
+      target.filters = _.union(filters, target.tags);
 
       queryTargets.push(target);
       var arr = timeColType.split(':');
@@ -143,10 +162,10 @@ export default class SqlDatasource {
 
       options.annotation.query =
           'SELECT ' +
-          castTimeCol + ' AS "time", ' +
-          (options.annotation.tags || 'NULL') + ' AS "tags", ' +
-          (options.annotation.title || 'NULL') + ' AS "title", ' +
-          (options.annotation.text || 'NULL') + ' AS "text" ' +
+          castTimeCol + ' AS time, ' +
+          (options.annotation.tags || 'NULL') + ' AS tags, ' +
+          (options.annotation.title || 'NULL') + ' AS title, ' +
+          (options.annotation.text || 'NULL') + ' AS text ' +
           'FROM ' + options.annotation.schema + '.' + options.annotation.table + ' ' +
           'WHERE $timeFilter';
     }
