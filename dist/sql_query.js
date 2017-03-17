@@ -195,7 +195,7 @@ System.register(['lodash', './query_part'], function(exports_1) {
                         /* There is no structural information about raw query, so best
                            effort parse the GROUP BY column to be able to detect series.
                            Only grouped by expressions or their aliases are inferred. */
-                        var parts = /GROUP BY (.+)\s*(?:ORDER|LIMIT|HAVING|$)/.exec(target.query);
+                        var parts = /GROUP BY (.+)\s+(?:ORDER|LIMIT|HAVING|$)/.exec(target.query);
                         if (parts) {
                             var last = parts[parts.length - 1];
                             target.groupBy = lodash_1.default.map(last.split(','), function (e, i) {
