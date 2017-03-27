@@ -32,6 +32,17 @@ declare var _default: {
             }[];
             defaultParams: string[];
         }[];
+        Transform_Other: ({
+            type: string;
+        } | {
+            type: string;
+            params: ({
+                name: string;
+            } | {
+                name: string;
+                dynamicLookup: boolean;
+            })[];
+        })[];
         Transform_Bit: {
             type: string;
             params: {

@@ -47,7 +47,7 @@ System.register(['lodash', './query_part_funcs'], function(exports_1) {
         return str + '(' + parameters.pop() + ')(' + parameters.join(', ') + ')';
     }
     function aliasRenderer(part, innerExpr) {
-        return innerExpr + ' AS ' + part.params[0];
+        return innerExpr + ' AS `' + part.params[0] + '`';
     }
     function suffixRenderer(part, innerExpr) {
         return innerExpr + ' ' + part.params[0];
@@ -154,6 +154,9 @@ System.register(['lodash', './query_part_funcs'], function(exports_1) {
                     this.dbms = options.dbms;
                 }
                 QueryPartDef.register = function (options) {
+                    if (index[options.type]) {
+                        return;
+                    }
                     index[options.type] = new QueryPartDef(options);
                     options.category.push(index[options.type]);
                 };

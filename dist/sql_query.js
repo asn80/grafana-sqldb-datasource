@@ -141,10 +141,10 @@ System.register(['lodash', './query_part'], function(exports_1) {
                         var intArray = lodash_1.default.reduce(values, function (memo, x) {
                             return memo && !isNaN(+x);
                         }, true);
-                        // Force quotes and braces
+                        // Force quotes and braces unless number or function
                         for (var i in values) {
                             values[i] = values[i].replace(/\'\"/, '');
-                            if (!intArray) {
+                            if (!intArray && !/[()]/.test(values[i])) {
                                 values[i] = "'" + value.replace(/\\/g, '\\\\') + "'";
                             }
                         }
@@ -154,7 +154,7 @@ System.register(['lodash', './query_part'], function(exports_1) {
                         if (interpolate) {
                             value = this.templateSrv.replace(value, this.scopedVars);
                         }
-                        if (!operator.startsWith('>') && !operator.startsWith('<') && isNaN(+value)) {
+                        if (!operator.startsWith('>') && !operator.startsWith('<') && isNaN(+value) && !/[()]/.test(value)) {
                             value = "'" + value.replace(/\\/g, '\\\\') + "'";
                         }
                     }
@@ -162,7 +162,7 @@ System.register(['lodash', './query_part'], function(exports_1) {
                         value = this.templateSrv.replace(value, this.scopedVars, 'regex');
                         value = "'" + value.replace(/^\//, '').replace(/\/$/, '') + "'";
                     }
-                    else if (isNaN(+value)) {
+                    else if (isNaN(+value) && !/[()]/.test(value)) {
                         value = "'" + value.replace(/^\//, '').replace(/\/$/, '') + "'";
                     }
                     if (index > 0) {

@@ -213,7 +213,7 @@ export default class SqlDatasource {
         return data;
       },
       error => {
-        var message = '';
+        var message = error.message || '';
         var match = /DB::Exception: (.+), e\.what/.exec(error.data.response);
         if (match) {
           message = match[1];
@@ -276,12 +276,16 @@ export default class SqlDatasource {
     }
 
     return this.backendSrv.datasourceRequest(options).then(result => {
+      if (_.isString(result.data)) {
+        throw { message: 'Not a JSON response.', data: {response: result.data} };
+      }
       return result.data;
     }, function(err) {
       if (err.status !== 0 || err.status >= 300) {
         if (err.data && err.data.error) {
           throw { message: 'SqlDB Error Response: ' + err.data.error, data: err.data, config: err.config };
         } else {
+          console.log(err);
           throw { message: 'SqlDB Error: ' + err.message, data: err.data, config: err.config };
         }
       }

@@ -1,13 +1,33 @@
 System.register([], function(exports_1) {
-    var clickhouse;
+    var clickhouse, mergeVariants, i, nspec;
     return {
         setters:[],
         execute: function() {
             clickhouse = {
                 Aggregations: [
+                    { type: 'count' },
+                    { type: 'avg' },
+                    { type: 'sum' },
                     { type: 'uniq' },
+                    { type: 'uniqHLL12' },
+                    { type: 'uniqExact' },
+                    { type: 'median' },
+                    { type: 'medianTiming' },
+                    { type: 'medianTDigest' },
                     {
                         type: 'quantile',
+                        params: [{ name: 'p', type: 'numeric', options: ['0.9', '0.95', '0.99'] }],
+                        defaultParams: ['0.9'],
+                        renderer: 'parametricFunctionRenderer'
+                    },
+                    {
+                        type: 'quantileTiming',
+                        params: [{ name: 'p', type: 'numeric', options: ['0.9', '0.95', '0.99'] }],
+                        defaultParams: ['0.9'],
+                        renderer: 'parametricFunctionRenderer'
+                    },
+                    {
+                        type: 'quantileTDigest',
                         params: [{ name: 'p', type: 'numeric', options: ['0.9', '0.95', '0.99'] }],
                         defaultParams: ['0.9'],
                         renderer: 'parametricFunctionRenderer'
@@ -34,7 +54,27 @@ System.register([], function(exports_1) {
                         defaultParams: ['1'],
                     },
                     {
+                        type: 'uniqExactIf',
+                        params: [{ name: 'cond', type: 'numeric', dynamicLookup: true }],
+                        defaultParams: ['1'],
+                    },
+                    {
+                        type: 'uniqHLL12If',
+                        params: [{ name: 'cond', type: 'numeric', dynamicLookup: true }],
+                        defaultParams: ['1'],
+                    },
+                    {
                         type: 'medianIf',
+                        params: [{ name: 'cond', type: 'numeric', dynamicLookup: true }],
+                        defaultParams: ['1'],
+                    },
+                    {
+                        type: 'medianTimingIf',
+                        params: [{ name: 'cond', type: 'numeric', dynamicLookup: true }],
+                        defaultParams: ['1'],
+                    },
+                    {
+                        type: 'medianTDigestIf',
                         params: [{ name: 'cond', type: 'numeric', dynamicLookup: true }],
                         defaultParams: ['1'],
                     },
@@ -47,16 +87,22 @@ System.register([], function(exports_1) {
                         defaultParams: ['0.9', '1'],
                         renderer: 'parametricFunctionRenderer'
                     },
-                    // Merging variants
-                    { type: 'countMerge' },
-                    { type: 'sumMerge' },
-                    { type: 'avgMerge' },
-                    { type: 'uniqMerge' },
-                    { type: 'medianMerge' },
                     {
-                        type: 'quantileMerge',
-                        params: [{ name: 'p', type: 'numeric', options: ['0.9', '0.95', '0.99'] }],
-                        defaultParams: ['0.9'],
+                        type: 'quantileTimingIf',
+                        params: [
+                            { name: 'cond', type: 'numeric', dynamicLookup: true },
+                            { name: 'p', type: 'numeric', options: ['0.9', '0.95', '0.99'] }
+                        ],
+                        defaultParams: ['0.9', '1'],
+                        renderer: 'parametricFunctionRenderer'
+                    },
+                    {
+                        type: 'quantileTDigestIf',
+                        params: [
+                            { name: 'cond', type: 'numeric', dynamicLookup: true },
+                            { name: 'p', type: 'numeric', options: ['0.9', '0.95', '0.99'] }
+                        ],
+                        defaultParams: ['0.9', '1'],
                         renderer: 'parametricFunctionRenderer'
                     }
                 ],
@@ -71,6 +117,26 @@ System.register([], function(exports_1) {
                         ],
                         defaultParams: ['1', '\'then\'', '\'else\''],
                     },
+                ],
+                // Other functions
+                Transform_Other: [
+                    { type: 'hostName' },
+                    { type: 'visibleWidth', params: [{ name: 'x', dynamicLookup: true }] },
+                    { type: 'toTypeName', params: [{ name: 'x', dynamicLookup: true }] },
+                    { type: 'blockSize' },
+                    { type: 'currentDatabase' },
+                    { type: 'isFinite', params: [{ name: 'x', dynamicLookup: true }] },
+                    { type: 'isInfinite', params: [{ name: 'x', dynamicLookup: true }] },
+                    { type: 'isNaN', params: [{ name: 'x', dynamicLookup: true }] },
+                    { type: 'hasColumnInTable', params: [{ name: 'db' }, { name: 'table' }, { name: 'column', dynamicLookup: true }] },
+                    { type: 'transform', params: [{ name: 'x', dynamicLookup: true }, { name: 'from' }, { name: 'to' }, { name: 'default' }] },
+                    { type: 'formatReadableSize', params: [{ name: 'x', dynamicLookup: true }] },
+                    { type: 'least', params: [{ name: 'x', dynamicLookup: true }, { name: 'y', dynamicLookup: true }] },
+                    { type: 'greatest', params: [{ name: 'x', dynamicLookup: true }, { name: 'y', dynamicLookup: true }] },
+                    { type: 'uptime' },
+                    { type: 'version' },
+                    { type: 'rowNumberInAllBlocks' },
+                    { type: 'runningDifference', params: [{ name: 'x', dynamicLookup: true }] },
                 ],
                 // Bit functions
                 Transform_Bit: [
@@ -295,6 +361,14 @@ System.register([], function(exports_1) {
                     { type: 'dictGetHierarchy', params: [{ name: 'dict' }, { name: 'key', dynamicLookup: true }] }
                 ]
             };
+            // Add Merge variants of aggregators
+            mergeVariants = [];
+            for (i in clickhouse.Aggregations) {
+                nspec = Object.assign({}, clickhouse.Aggregations[i]);
+                nspec.type += 'Merge';
+                mergeVariants.push(nspec);
+            }
+            clickhouse.Aggregations.push.apply(clickhouse.Aggregations, mergeVariants);
             exports_1("default",{
                 clickhouse: clickhouse
             });

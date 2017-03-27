@@ -33,6 +33,9 @@ class QueryPartDef {
   }
 
   static register(options: any) {
+    if (index[options.type]) {
+      return;
+    }
     index[options.type] = new QueryPartDef(options);
     options.category.push(index[options.type]);
   }
@@ -85,7 +88,7 @@ function parametricFunctionRenderer(part, innerExpr) {
 }
 
 function aliasRenderer(part, innerExpr) {
-  return innerExpr + ' AS ' + part.params[0];
+  return innerExpr + ' AS `' + part.params[0] + '`';
 }
 
 function suffixRenderer(part, innerExpr) {

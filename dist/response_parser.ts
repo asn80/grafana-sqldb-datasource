@@ -24,7 +24,7 @@ export default class ResponseParser {
     });
 
     return _.map(res, value => {
-      return { text: value};
+      return { text: value };
     });
   }
 }

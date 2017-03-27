@@ -240,7 +240,7 @@ System.register(['./query_part_editor', 'angular', 'lodash', './query_builder', 
                         }
                         else {
                             return this.$q.when(this.uiSegmentSrv.newOperators([
-                                '=', '<>', '<', '<=', '>', '>=', 'IN', 'NOT IN'
+                                '=', '<>', '<', '<=', '>', '>=', 'IN', 'NOT IN', 'LIKE', 'NOT LIKE'
                             ]));
                         }
                     }

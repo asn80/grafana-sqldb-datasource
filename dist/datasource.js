@@ -199,7 +199,7 @@ System.register(['lodash', 'app/core/utils/datemath', './sql_series', './sql_que
                             data.results = [{ series: [{ values: series, columns: columns }] }];
                             return data;
                         }, function (error) {
-                            var message = '';
+                            var message = error.message || '';
                             var match = /DB::Exception: (.+), e\.what/.exec(error.data.response);
                             if (match) {
                                 message = match[1];
@@ -256,6 +256,9 @@ System.register(['lodash', 'app/core/utils/datemath', './sql_series', './sql_que
                         options.params = data;
                     }
                     return this.backendSrv.datasourceRequest(options).then(function (result) {
+                        if (lodash_1.default.isString(result.data)) {
+                            throw { message: 'Not a JSON response.', data: { response: result.data } };
+                        }
                         return result.data;
                     }, function (err) {
                         if (err.status !== 0 || err.status >= 300) {
@@ -263,6 +266,7 @@ System.register(['lodash', 'app/core/utils/datemath', './sql_series', './sql_que
                                 throw { message: 'SqlDB Error Response: ' + err.data.error, data: err.data, config: err.config };
                             }
                             else {
+                                console.log(err);
                                 throw { message: 'SqlDB Error: ' + err.message, data: err.data, config: err.config };
                             }
                         }
